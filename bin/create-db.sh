@@ -56,10 +56,10 @@ DB_RESPONSE=$(curl -s -X POST "https://api.notion.com/v1/databases" \
       "ステータス": {
         "select": {
           "options": [
-            { "name": "未処理", "color": "red" },
-            { "name": "処理中", "color": "yellow" },
-            { "name": "完了", "color": "green" },
-            { "name": "理解済み", "color": "blue" }
+            { "name": "登録", "color": "red" },
+            { "name": "調査中", "color": "yellow" },
+            { "name": "調査完了", "color": "green" },
+            { "name": "理解済", "color": "blue" }
           ]
         }
       },
@@ -108,7 +108,7 @@ add_page() {
           ]
         },
         "ステータス": {
-          "select": { "name": "未処理" }
+          "select": { "name": "登録" }
         },
         "カテゴリ": {
           "select": { "name": "'"$category"'" }

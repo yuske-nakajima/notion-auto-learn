@@ -33,7 +33,7 @@ PENDING_ITEMS=$(curl -s "https://api.notion.com/v1/databases/${DB_ID}/query" \
   -H "Authorization: Bearer ${NOTION_API_KEY}" \
   -H "Notion-Version: 2022-06-28" \
   -H "Content-Type: application/json" \
-  -d '{"filter":{"property":"ステータス","select":{"equals":"未処理"}}}')
+  -d '{"filter":{"property":"ステータス","select":{"equals":"登録"}}}')
 
 COUNT=$(echo "$PENDING_ITEMS" | jq '.results | length')
 if [ "$COUNT" -eq 0 ]; then
@@ -54,7 +54,7 @@ while read -r item; do
     -H "Authorization: Bearer ${NOTION_API_KEY}" \
     -H "Notion-Version: 2022-06-28" \
     -H "Content-Type: application/json" \
-    -d '{"properties":{"ステータス":{"select":{"name":"処理中"}}}}' > /dev/null
+    -d '{"properties":{"ステータス":{"select":{"name":"調査中"}}}}' > /dev/null
 
   # claude -p で解説生成（< /dev/null で stdin を切断）
   PROMPT=$(sed "s/{{TERM}}/$TERM/g" "$ROOT_DIR/prompts/explain-term.md")
@@ -64,24 +64,64 @@ while read -r item; do
       -H "Authorization: Bearer ${NOTION_API_KEY}" \
       -H "Notion-Version: 2022-06-28" \
       -H "Content-Type: application/json" \
-      -d '{"properties":{"ステータス":{"select":{"name":"未処理"}}}}' > /dev/null
+      -d '{"properties":{"ステータス":{"select":{"name":"登録"}}}}' > /dev/null
     continue
   }
 
-  # Notion ページ本文に書き込み
+  # Markdown → Notion ブロックに変換して書き込み
+  BLOCKS="[]"
+  current_text=""
+
+  flush_paragraph() {
+    if [ -n "$current_text" ]; then
+      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$current_text" '. + [{
+        "object": "block", "type": "paragraph",
+        "paragraph": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
+      }]')
+      current_text=""
+    fi
+  }
+
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" =~ ^###\  ]]; then
+      flush_paragraph
+      heading_text="${line#\#\#\# }"
+      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$heading_text" '. + [{
+        "object": "block", "type": "heading_3",
+        "heading_3": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
+      }]')
+    elif [[ "$line" =~ ^##\  ]]; then
+      flush_paragraph
+      heading_text="${line#\#\# }"
+      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$heading_text" '. + [{
+        "object": "block", "type": "heading_2",
+        "heading_2": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
+      }]')
+    elif [[ "$line" =~ ^-\  ]]; then
+      flush_paragraph
+      item_text="${line#- }"
+      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$item_text" '. + [{
+        "object": "block", "type": "bulleted_list_item",
+        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
+      }]')
+    elif [ -z "$line" ]; then
+      flush_paragraph
+    else
+      if [ -n "$current_text" ]; then
+        current_text="${current_text}
+${line}"
+      else
+        current_text="$line"
+      fi
+    fi
+  done <<< "$EXPLANATION"
+  flush_paragraph
+
   curl -s -X PATCH "https://api.notion.com/v1/blocks/${PAGE_ID}/children" \
     -H "Authorization: Bearer ${NOTION_API_KEY}" \
     -H "Notion-Version: 2022-06-28" \
     -H "Content-Type: application/json" \
-    -d "$(jq -n --arg text "$EXPLANATION" '{
-      "children": [{
-        "object": "block",
-        "type": "paragraph",
-        "paragraph": {
-          "rich_text": [{"type": "text", "text": {"content": $text}}]
-        }
-      }]
-    }')" > /dev/null
+    -d "$(echo "$BLOCKS" | jq '{children: .}')" > /dev/null
 
   # ステータス → 完了 + 処理日
   curl -s -X PATCH "https://api.notion.com/v1/pages/${PAGE_ID}" \
@@ -90,7 +130,7 @@ while read -r item; do
     -H "Content-Type: application/json" \
     -d "$(jq -n --arg date "$(date -u +%Y-%m-%d)" '{
       "properties": {
-        "ステータス": {"select": {"name": "完了"}},
+        "ステータス": {"select": {"name": "調査完了"}},
         "処理日": {"date": {"start": $date}}
       }
     }')" > /dev/null

@@ -24,7 +24,7 @@ if [ ! -f "$ROOT_DIR/.env" ]; then
   echo "[方法B] 手動で作る:"
   echo "  Notion で新規データベースを作成し、以下のプロパティを追加:"
   echo "    用語(Title), ステータス(Select), カテゴリ(Select), 処理日(Date), メモ(Rich Text)"
-  echo "  ステータスの選択肢: 未処理, 処理中, 完了, 理解済み"
+  echo "  ステータスの選択肢: 登録, 調査中, 調査完了, 理解済"
   echo "  カテゴリの選択肢: 技術, 一般, ビジネス"
   echo ""
   echo "DB 作成後、ブラウザのアドレスバーから URL をコピーして .env の NOTION_DB_URL に貼ってください。"
