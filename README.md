@@ -61,7 +61,7 @@ launchctl load ~/Library/LaunchAgents/com.notion.auto-learn.plist
 
 ## 日常の使い方
 
-1. Notion のデータベースに知らない用語を追加（ステータス: 登録）
+1. Notion のデータベースに知らない用語を追加（ステータスは空のまま）
 2. 次の cron 実行で Claude が自動的に解説を生成
 3. 解説を読んで理解したら「理解済」に変更
 

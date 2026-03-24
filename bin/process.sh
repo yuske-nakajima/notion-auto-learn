@@ -33,7 +33,7 @@ PENDING_ITEMS=$(curl -s "https://api.notion.com/v1/databases/${DB_ID}/query" \
   -H "Authorization: Bearer ${NOTION_API_KEY}" \
   -H "Notion-Version: 2022-06-28" \
   -H "Content-Type: application/json" \
-  -d '{"filter":{"property":"ステータス","select":{"equals":"登録"}}}')
+  -d '{"filter":{"property":"ステータス","select":{"is_empty":true}}}')
 
 COUNT=$(echo "$PENDING_ITEMS" | jq '.results | length')
 if [ "$COUNT" -eq 0 ]; then
@@ -64,7 +64,7 @@ while read -r item; do
       -H "Authorization: Bearer ${NOTION_API_KEY}" \
       -H "Notion-Version: 2022-06-28" \
       -H "Content-Type: application/json" \
-      -d '{"properties":{"ステータス":{"select":{"name":"登録"}}}}' > /dev/null
+      -d '{"properties":{"ステータス":{"select":null}}}' > /dev/null
     continue
   }
 

@@ -107,9 +107,6 @@ add_page() {
             { "type": "text", "text": { "content": "'"$term"'" } }
           ]
         },
-        "ステータス": {
-          "select": { "name": "登録" }
-        },
         "カテゴリ": {
           "select": { "name": "'"$category"'" }
         }
