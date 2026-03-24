@@ -23,8 +23,8 @@ cd notion-auto-learn
 #    NOTION_API_KEY=ntn_xxx
 #    NOTION_PARENT_PAGE_URL=https://www.notion.so/...  ← DB を配置するページ
 
-# 3. DB がまだ無い場合 → Claude に任せる（親ページに DB を自動作成）
-./bin/init-db.sh
+# 3. DB がまだ無い場合 → スクリプトで自動作成
+./bin/create-db.sh
 
 # 4. DB URL を .env に貼る
 
@@ -91,9 +91,9 @@ launchctl load ~/Library/LaunchAgents/com.notion.auto-learn.plist
 ├── bin/
 │   ├── health-check.sh   # 前提条件チェック
 │   ├── init.sh            # 初期セットアップ
+│   ├── create-db.sh       # DB 自動作成（curl 直接）
 │   └── process.sh         # メイン処理
 ├── prompts/
-│   ├── init-db.md         # DB作成用プロンプト
 │   └── explain-term.md    # 用語解説生成用プロンプト
 ├── examples/
 │   └── launchd.plist      # macOS 定期実行テンプレート
