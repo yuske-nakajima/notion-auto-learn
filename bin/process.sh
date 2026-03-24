@@ -45,9 +45,9 @@ log "INFO" "${COUNT} 件の未処理アイテムを検出"
 # 2. 各アイテムを処理（プロセス置換で stdin を分離し claude -p の干渉を防ぐ）
 while read -r item; do
   PAGE_ID=$(echo "$item" | jq -r '.id')
-  TERM=$(echo "$item" | jq -r '.properties["用語"].title[0].plain_text')
+  WORD=$(echo "$item" | jq -r '.properties["用語"].title[0].plain_text')
 
-  log "INFO" "処理開始 — $TERM"
+  log "INFO" "処理開始 — $WORD"
 
   # ステータス → 処理中
   curl -s -X PATCH "https://api.notion.com/v1/pages/${PAGE_ID}" \
@@ -57,9 +57,9 @@ while read -r item; do
     -d '{"properties":{"ステータス":{"select":{"name":"調査中"}}}}' > /dev/null
 
   # claude -p で解説生成（< /dev/null で stdin を切断）
-  PROMPT=$(sed "s/{{TERM}}/$TERM/g" "$ROOT_DIR/prompts/explain-term.md")
-  EXPLANATION=$(claude -p "$PROMPT" < /dev/null 2>/dev/null) || {
-    log "ERROR" "claude -p 失敗 — $TERM をスキップ"
+  PROMPT=$(sed "s/{{WORD}}/$WORD/g" "$ROOT_DIR/prompts/explain-term.md")
+  EXPLANATION=$(claude -p "$PROMPT" < /dev/null 2>&1) || {
+    log "ERROR" "claude -p 失敗 — $WORD をスキップ（詳細: $EXPLANATION）"
     curl -s -X PATCH "https://api.notion.com/v1/pages/${PAGE_ID}" \
       -H "Authorization: Bearer ${NOTION_API_KEY}" \
       -H "Notion-Version: 2022-06-28" \
@@ -135,7 +135,7 @@ ${line}"
       }
     }')" > /dev/null
 
-  log "INFO" "処理完了 — $TERM"
+  log "INFO" "処理完了 — $WORD"
   sleep "$WAIT_SECONDS"
 done < <(echo "$PENDING_ITEMS" | jq -c '.results[]')
 

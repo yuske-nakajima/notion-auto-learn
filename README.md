@@ -34,25 +34,18 @@ cd notion-auto-learn
 
 ## 使い方
 
-### 手動実行
-
 ```bash
 ./bin/process.sh
 ```
 
-### cron で定期実行
-
-```bash
-crontab -e
-# 毎時実行
-0 * * * * /path/to/notion-auto-learn/bin/process.sh >> /tmp/notion-auto-learn.log 2>&1
-```
+> 未処理アイテムがなければ `claude -p` は呼ばれないため、Claude の消費はありません。
 
 ## 日常の使い方
 
 1. Notion のデータベースに知らない用語を追加（ステータスは空のまま）
-2. 次の cron 実行で Claude が自動的に解説を生成
-3. 解説を読んで理解したら「理解済」に変更
+2. `./bin/process.sh` を実行（手動 or トリガー）
+3. Claude が自動的に解説を生成して Notion に書き込み
+4. 解説を読んで理解したら「理解済」に変更
 
 ## Notion データベースのプロパティ
 
