@@ -1,9 +1,9 @@
 Notion API を使って「知らないことリスト」データベースを作成してください。
 
 ## 前提
-- NOTION_API_KEY 環境変数が設定済み
-- NOTION_PARENT_PAGE_URL 環境変数に親ページの URL が設定済み
-- 親ページ ID は URL から自動抽出する（末尾32文字の hex）
+- Notion API キー: {{NOTION_API_KEY}}
+- 親ページ ID: {{PARENT_PAGE_ID}}
+- この値はスクリプトから自動埋め込みされる
 
 ## 作成するデータベースのプロパティ
 

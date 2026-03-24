@@ -19,7 +19,7 @@ if [ ! -f "$ROOT_DIR/.env" ]; then
   echo "=== DB セットアップ方法 ==="
   echo ""
   echo "[方法A] Claude に任せる:"
-  echo "  claude -p \"\$(cat $ROOT_DIR/prompts/init-db.md)\""
+  echo "  ./bin/init-db.sh"
   echo ""
   echo "[方法B] 手動で作る:"
   echo "  Notion で新規データベースを作成し、以下のプロパティを追加:"

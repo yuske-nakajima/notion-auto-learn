@@ -24,7 +24,7 @@ cd notion-auto-learn
 #    NOTION_PARENT_PAGE_URL=https://www.notion.so/...  ← DB を配置するページ
 
 # 3. DB がまだ無い場合 → Claude に任せる（親ページに DB を自動作成）
-claude -p "$(cat prompts/init-db.md)"
+./bin/init-db.sh
 
 # 4. DB URL を .env に貼る
 

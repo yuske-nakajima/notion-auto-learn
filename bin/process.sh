@@ -8,6 +8,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 "$SCRIPT_DIR/health-check.sh" || exit 1
 
 source "$ROOT_DIR/.env"
+export NOTION_API_KEY NOTION_DB_URL
 
 LOG_LEVEL="${LOG_LEVEL:-info}"
 WAIT_SECONDS="${WAIT_SECONDS:-1}"
