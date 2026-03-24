@@ -48,17 +48,6 @@ crontab -e
 0 * * * * /path/to/notion-auto-learn/bin/process.sh >> /tmp/notion-auto-learn.log 2>&1
 ```
 
-### macOS launchd で定期実行
-
-`examples/launchd.plist` を参考に設定してください。
-
-```bash
-# plist を編集（パスを書き換え）
-cp examples/launchd.plist ~/Library/LaunchAgents/com.notion.auto-learn.plist
-# 編集後
-launchctl load ~/Library/LaunchAgents/com.notion.auto-learn.plist
-```
-
 ## 日常の使い方
 
 1. Notion のデータベースに知らない用語を追加（ステータスは空のまま）
@@ -95,8 +84,6 @@ launchctl load ~/Library/LaunchAgents/com.notion.auto-learn.plist
 │   └── process.sh         # メイン処理
 ├── prompts/
 │   └── explain-term.md    # 用語解説生成用プロンプト
-├── examples/
-│   └── launchd.plist      # macOS 定期実行テンプレート
 ├── .env.example           # 環境変数テンプレート
 └── README.md
 ```
