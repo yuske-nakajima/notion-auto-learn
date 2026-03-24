@@ -45,7 +45,7 @@ log "INFO" "${COUNT} 件の未処理アイテムを検出"
 # 2. 各アイテムを処理
 echo "$PENDING_ITEMS" | jq -c '.results[]' | while read -r item; do
   PAGE_ID=$(echo "$item" | jq -r '.id')
-  TERM=$(echo "$item" | jq -r '.properties.用語.title[0].plain_text')
+  TERM=$(echo "$item" | jq -r '.properties["用語"].title[0].plain_text')
 
   log "INFO" "処理開始 — $TERM"
 
