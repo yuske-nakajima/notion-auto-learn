@@ -42,8 +42,8 @@ if [ "$COUNT" -eq 0 ]; then
 fi
 log "INFO" "${COUNT} 件の未処理アイテムを検出"
 
-# 2. 各アイテムを処理
-echo "$PENDING_ITEMS" | jq -c '.results[]' | while read -r item; do
+# 2. 各アイテムを処理（プロセス置換で stdin を分離し claude -p の干渉を防ぐ）
+while read -r item; do
   PAGE_ID=$(echo "$item" | jq -r '.id')
   TERM=$(echo "$item" | jq -r '.properties["用語"].title[0].plain_text')
 
@@ -56,9 +56,9 @@ echo "$PENDING_ITEMS" | jq -c '.results[]' | while read -r item; do
     -H "Content-Type: application/json" \
     -d '{"properties":{"ステータス":{"select":{"name":"処理中"}}}}' > /dev/null
 
-  # claude -p で解説生成
+  # claude -p で解説生成（< /dev/null で stdin を切断）
   PROMPT=$(sed "s/{{TERM}}/$TERM/g" "$ROOT_DIR/prompts/explain-term.md")
-  EXPLANATION=$(claude -p "$PROMPT" 2>/dev/null) || {
+  EXPLANATION=$(claude -p "$PROMPT" < /dev/null 2>/dev/null) || {
     log "ERROR" "claude -p 失敗 — $TERM をスキップ"
     curl -s -X PATCH "https://api.notion.com/v1/pages/${PAGE_ID}" \
       -H "Authorization: Bearer ${NOTION_API_KEY}" \
@@ -97,6 +97,6 @@ echo "$PENDING_ITEMS" | jq -c '.results[]' | while read -r item; do
 
   log "INFO" "処理完了 — $TERM"
   sleep "$WAIT_SECONDS"
-done
+done < <(echo "$PENDING_ITEMS" | jq -c '.results[]')
 
 log "INFO" "全件処理完了"
