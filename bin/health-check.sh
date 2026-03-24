@@ -49,7 +49,7 @@ fi
 
 # --- 5. DB アクセス確認 ---
 if [ -n "${NOTION_DB_URL:-}" ] && [ -n "${NOTION_API_KEY:-}" ]; then
-  DB_ID=$(echo "$NOTION_DB_URL" | sed -E 's|.*/([a-f0-9]{32}).*|\1|' | sed 's/-//g')
+  DB_ID=$(echo "$NOTION_DB_URL" | sed -E 's|.*[-/]([a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12}).*|\1|' | sed 's/-//g')
   HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
     "https://api.notion.com/v1/databases/${DB_ID}" \
     -H "Authorization: Bearer ${NOTION_API_KEY}" \

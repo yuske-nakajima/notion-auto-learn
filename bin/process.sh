@@ -25,7 +25,7 @@ log() {
 }
 
 # DB ID 抽出
-DB_ID=$(echo "$NOTION_DB_URL" | sed -E 's|.*/([a-f0-9]{32}).*|\1|' | sed 's/-//g')
+DB_ID=$(echo "$NOTION_DB_URL" | sed -E 's|.*[-/]([a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12}).*|\1|' | sed 's/-//g')
 
 # 1. 未処理アイテム取得
 log "INFO" "未処理アイテムを取得中..."
