@@ -21,9 +21,9 @@ cd notion-auto-learn
 
 # 2. .env を編集
 #    NOTION_API_KEY=ntn_xxx
-#    NOTION_DB_URL=https://www.notion.so/...
+#    NOTION_PARENT_PAGE_URL=https://www.notion.so/...  ← DB を配置するページ
 
-# 3. DB がまだ無い場合 → Claude に任せる
+# 3. DB がまだ無い場合 → Claude に任せる（親ページに DB を自動作成）
 claude -p "$(cat prompts/init-db.md)"
 
 # 4. DB URL を .env に貼る
@@ -80,6 +80,7 @@ launchctl load ~/Library/LaunchAgents/com.notion.auto-learn.plist
 | 変数 | 必須 | 説明 |
 |------|------|------|
 | `NOTION_API_KEY` | Yes | Notion Integration トークン |
+| `NOTION_PARENT_PAGE_URL` | Yes* | DB を配置する親ページの URL（初回DB作成時に使用） |
 | `NOTION_DB_URL` | Yes | Notion データベースの URL |
 | `WAIT_SECONDS` | No | 処理間の待機秒数（デフォルト: 1） |
 | `LOG_LEVEL` | No | debug / info / warn / error（デフォルト: info） |
