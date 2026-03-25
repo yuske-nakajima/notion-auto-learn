@@ -8,6 +8,7 @@ ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 "$SCRIPT_DIR/health-check.sh" || exit 1
 
 source "$ROOT_DIR/.env"
+source "$ROOT_DIR/lib/md-to-notion.sh"
 export NOTION_API_KEY NOTION_DB_URL
 
 LOG_LEVEL="${LOG_LEVEL:-info}"
@@ -68,54 +69,8 @@ while read -r item; do
     continue
   }
 
-  # Markdown → Notion ブロックに変換して書き込み
-  BLOCKS="[]"
-  current_text=""
-
-  flush_paragraph() {
-    if [ -n "$current_text" ]; then
-      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$current_text" '. + [{
-        "object": "block", "type": "paragraph",
-        "paragraph": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
-      }]')
-      current_text=""
-    fi
-  }
-
-  while IFS= read -r line || [ -n "$line" ]; do
-    if [[ "$line" =~ ^###\  ]]; then
-      flush_paragraph
-      heading_text="${line#\#\#\# }"
-      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$heading_text" '. + [{
-        "object": "block", "type": "heading_3",
-        "heading_3": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
-      }]')
-    elif [[ "$line" =~ ^##\  ]]; then
-      flush_paragraph
-      heading_text="${line#\#\# }"
-      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$heading_text" '. + [{
-        "object": "block", "type": "heading_2",
-        "heading_2": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
-      }]')
-    elif [[ "$line" =~ ^-\  ]]; then
-      flush_paragraph
-      item_text="${line#- }"
-      BLOCKS=$(echo "$BLOCKS" | jq --arg t "$item_text" '. + [{
-        "object": "block", "type": "bulleted_list_item",
-        "bulleted_list_item": {"rich_text": [{"type": "text", "text": {"content": $t}}]}
-      }]')
-    elif [ -z "$line" ]; then
-      flush_paragraph
-    else
-      if [ -n "$current_text" ]; then
-        current_text="${current_text}
-${line}"
-      else
-        current_text="$line"
-      fi
-    fi
-  done <<< "$EXPLANATION"
-  flush_paragraph
+  # Markdown → Notion ブロックに変換
+  BLOCKS=$(md_to_notion_blocks "$EXPLANATION")
 
   curl -s -X PATCH "https://api.notion.com/v1/blocks/${PAGE_ID}/children" \
     -H "Authorization: Bearer ${NOTION_API_KEY}" \
