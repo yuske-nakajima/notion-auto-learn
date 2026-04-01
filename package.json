@@ -1,0 +1,23 @@
+{
+	"name": "notion-auto-learn",
+	"version": "0.1.0",
+	"description": "Notion + Claude CLI で「知らないことリスト」を自動処理するツール",
+	"type": "module",
+	"scripts": {
+		"start": "node --env-file=.env src/index.js",
+		"test": "echo \"No tests yet\" && exit 0",
+		"check": "biome check .",
+		"format": "biome format --write .",
+		"health-check": "bash bin/health-check.sh",
+		"run-once": "bash bin/process.sh"
+	},
+	"author": "yuske-nakajima",
+	"license": "MIT",
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/yuske-nakajima/notion-auto-learn.git"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.9"
+	}
+}
