@@ -5,11 +5,11 @@
 	"type": "module",
 	"scripts": {
 		"start": "node --env-file=.env src/index.js",
+		"run-once": "node --env-file=.env src/index.js --run-once",
+		"health-check": "node --env-file=.env src/index.js --health-check",
 		"test": "node --test test/*.test.js",
 		"check": "biome check .",
-		"format": "biome format --write .",
-		"health-check": "bash bin/health-check.sh",
-		"run-once": "bash bin/process.sh"
+		"format": "biome format --write ."
 	},
 	"author": "yuske-nakajima",
 	"license": "MIT",
