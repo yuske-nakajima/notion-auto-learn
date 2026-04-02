@@ -15,19 +15,15 @@ const PROMPT_TEMPLATE_PATH = resolve(import.meta.dirname, '../prompts/explain-te
 
 /**
  * 指定ミリ秒だけ待機する
- * @param {number} ms - 待機ミリ秒
- * @returns {Promise<void>}
  */
-function sleep(ms) {
+function sleep(ms: number): Promise<void> {
 	return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /**
  * claude -p コマンドでプロンプトを実行し、出力を返す
- * @param {string} prompt - プロンプト文字列
- * @returns {Promise<string>} claude の出力
  */
-function runClaude(prompt) {
+function runClaude(prompt: string): Promise<string> {
 	return new Promise((resolve, reject) => {
 		execFile('claude', ['-p', prompt], { maxBuffer: 1024 * 1024 }, (err, stdout, stderr) => {
 			if (err) {
@@ -41,18 +37,15 @@ function runClaude(prompt) {
 
 /**
  * 今日の日付を YYYY-MM-DD 形式で返す（UTC）
- * @returns {string}
  */
-function todayUTC() {
+function todayUTC(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
 /**
  * 未処理アイテムを取得し、順番に処理する
- * @param {string} databaseId - Notion Database ID
- * @returns {Promise<void>}
  */
-export async function processItems(databaseId) {
+export async function processItems(databaseId: string): Promise<void> {
 	const items = await queryUnprocessedItems(databaseId);
 
 	if (items.length === 0) {
@@ -65,7 +58,8 @@ export async function processItems(databaseId) {
 
 	for (const item of items) {
 		const pageId = item.id;
-		const word = item.properties.用語?.title?.[0]?.plain_text;
+		const wordProp = item.properties.用語 as { title?: { plain_text?: string }[] } | undefined;
+		const word = wordProp?.title?.[0]?.plain_text;
 
 		if (!word) {
 			info(`用語名が空のアイテムをスキップ (${pageId})`);
@@ -93,12 +87,12 @@ export async function processItems(databaseId) {
 
 			info(`処理完了 -- ${word}`);
 		} catch (err) {
-			error(`${word} の処理に失敗: ${err.message}`);
+			error(`${word} の処理に失敗: ${(err as Error).message}`);
 			// ステータスを空に戻す（ロールバック）
 			try {
 				await updatePageStatus(pageId, null);
 			} catch (rollbackErr) {
-				error(`ロールバック失敗 (${word}): ${rollbackErr.message}`);
+				error(`ロールバック失敗 (${word}): ${(rollbackErr as Error).message}`);
 			}
 		}
 

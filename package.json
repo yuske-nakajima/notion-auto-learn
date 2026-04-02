@@ -4,10 +4,12 @@
 	"description": "Notion + Claude CLI で「知らないことリスト」を自動処理するツール",
 	"type": "module",
 	"scripts": {
-		"start": "node --env-file=.env src/index.js",
-		"run-once": "node --env-file=.env src/index.js --run-once",
-		"health-check": "node --env-file=.env src/index.js --health-check",
-		"test": "node --test test/*.test.js",
+		"start": "tsx --env-file=.env src/index.ts",
+		"run-once": "tsx --env-file=.env src/index.ts --run-once",
+		"health-check": "tsx --env-file=.env src/index.ts --health-check",
+		"test": "vitest run",
+		"test:watch": "vitest",
+		"typecheck": "tsc --noEmit",
 		"check": "biome check .",
 		"format": "biome format --write ."
 	},
@@ -17,7 +19,13 @@
 		"type": "git",
 		"url": "https://github.com/yuske-nakajima/notion-auto-learn.git"
 	},
+	"dependencies": {
+		"tsx": "4.21.0"
+	},
 	"devDependencies": {
-		"@biomejs/biome": "2.4.9"
+		"@biomejs/biome": "2.4.10",
+		"@types/node": "25.5.0",
+		"typescript": "6.0.2",
+		"vitest": "4.1.2"
 	}
 }

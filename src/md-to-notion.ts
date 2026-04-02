@@ -1,5 +1,27 @@
-// Markdown → Notion ブロック変換ライブラリ
+// Markdown -> Notion ブロック変換ライブラリ
 // 対応: 見出し(h1,h2,h3), 太字, リンク, 生URL, 箇条書き, 番号付きリスト, テーブル, 段落
+
+/** Notion rich_text セグメント */
+interface RichTextSegment {
+	type: 'text';
+	text: {
+		content: string;
+		link?: { url: string };
+	};
+	annotations?: {
+		bold?: boolean;
+	};
+}
+
+/** Notion テーブル行の cells 型 */
+type TableCells = RichTextSegment[][];
+
+/** Notion ブロック */
+interface NotionBlock {
+	object: 'block';
+	type: string;
+	[key: string]: unknown;
+}
 
 // 正規表現パターン
 const RE_BOLD = /^\*\*([^*]+)\*\*/;
@@ -10,11 +32,9 @@ const RE_TABLE_SEP = /^\|[\s:|-]+\|$/;
 
 /**
  * テキスト中の **太字**, [text](url), 生URL を Notion rich_text 配列に変換
- * @param {string} text
- * @returns {Array} Notion rich_text 配列
  */
-export function parseRichText(text) {
-	const segments = [];
+export function parseRichText(text: string): RichTextSegment[] {
+	const segments: RichTextSegment[] = [];
 	let remaining = text;
 
 	while (remaining.length > 0) {
@@ -81,10 +101,8 @@ export function parseRichText(text) {
 
 /**
  * テーブル行をパースしてNotion table_row の cells 配列を返す
- * @param {string} line - "| cell1 | cell2 |" 形式
- * @returns {Array} cells配列（各セルは rich_text 配列）
  */
-function parseTableRow(line) {
+function parseTableRow(line: string): TableCells {
 	// 先頭・末尾の | を除去し、| で分割
 	const trimmed = line.replace(/^\|/, '').replace(/\|$/, '');
 	const parts = trimmed.split('|');
@@ -93,27 +111,23 @@ function parseTableRow(line) {
 
 /**
  * テーブル区切り行かどうかを判定
- * @param {string} line
- * @returns {boolean}
  */
-function isSeparatorRow(line) {
+function isSeparatorRow(line: string): boolean {
 	return RE_TABLE_SEP.test(line);
 }
 
 /**
  * Markdown を Notion ブロック配列に変換
- * @param {string} markdown
- * @returns {Array} Notion block 配列
  */
-export function mdToNotionBlocks(markdown) {
-	const blocks = [];
+export function mdToNotionBlocks(markdown: string): NotionBlock[] {
+	const blocks: NotionBlock[] = [];
 	let currentText = '';
 	let inTable = false;
-	let tableRows = [];
+	let tableRows: TableCells[] = [];
 	let tableWidth = 0;
 
 	/** 溜まったテキストを paragraph として flush */
-	function flushParagraph() {
+	function flushParagraph(): void {
 		if (currentText.length > 0) {
 			const richText = parseRichText(currentText);
 			blocks.push({
@@ -126,7 +140,7 @@ export function mdToNotionBlocks(markdown) {
 	}
 
 	/** テーブルバッファを flush */
-	function flushTable() {
+	function flushTable(): void {
 		if (inTable && tableRows.length > 0) {
 			blocks.push({
 				object: 'block',

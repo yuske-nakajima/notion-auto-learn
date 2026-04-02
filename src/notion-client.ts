@@ -7,11 +7,35 @@ const NOTION_API_VERSION = '2022-06-28';
 const NOTION_BASE_URL = 'https://api.notion.com/v1';
 const MAX_BLOCKS_PER_REQUEST = 100;
 
+/** Notion API レスポンスの基本型 */
+interface NotionResponse {
+	[key: string]: unknown;
+}
+
+/** Notion ページアイテム */
+interface NotionPage {
+	id: string;
+	properties: {
+		[key: string]: unknown;
+	};
+}
+
+/** Notion クエリレスポンス */
+interface NotionQueryResponse {
+	results: NotionPage[];
+}
+
+/** Notion ブロック */
+interface NotionBlock {
+	object: string;
+	type: string;
+	[key: string]: unknown;
+}
+
 /**
  * Notion API キーを取得
- * @returns {string}
  */
-function getApiKey() {
+function getApiKey(): string {
 	const key = process.env.NOTION_API_KEY;
 	if (!key) {
 		throw new Error('NOTION_API_KEY が未設定です');
@@ -21,9 +45,8 @@ function getApiKey() {
 
 /**
  * Notion API 共通ヘッダーを返す
- * @returns {Record<string, string>}
  */
-function getHeaders() {
+function getHeaders(): Record<string, string> {
 	return {
 		Authorization: `Bearer ${getApiKey()}`,
 		'Notion-Version': NOTION_API_VERSION,
@@ -33,15 +56,12 @@ function getHeaders() {
 
 /**
  * Notion API リクエストを送信し、レスポンスを返す
- * @param {string} path - APIパス（例: /databases/xxx/query）
- * @param {RequestInit} options - fetch オプション
- * @returns {Promise<object>} レスポンスJSON
  */
-async function notionFetch(path, options = {}) {
+async function notionFetch(path: string, options: RequestInit = {}): Promise<NotionResponse> {
 	const url = `${NOTION_BASE_URL}${path}`;
 	const response = await fetch(url, {
 		...options,
-		headers: { ...getHeaders(), ...options.headers },
+		headers: { ...getHeaders(), ...((options.headers as Record<string, string>) ?? {}) },
 	});
 
 	if (!response.ok) {
@@ -49,15 +69,13 @@ async function notionFetch(path, options = {}) {
 		throw new Error(`Notion API エラー (${response.status}): ${body}`);
 	}
 
-	return response.json();
+	return response.json() as Promise<NotionResponse>;
 }
 
 /**
  * Notion DB URL から Database ID を抽出
- * @param {string} url - Notion DB URL
- * @returns {string} Database ID（ハイフンなし32文字）
  */
-export function extractDatabaseId(url) {
+export function extractDatabaseId(url: string): string {
 	// URLからUUID形式（ハイフンあり/なし）を抽出
 	const match = url.match(/[-/]([a-f0-9]{8}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{4}-?[a-f0-9]{12})/);
 	if (!match) {
@@ -68,12 +86,10 @@ export function extractDatabaseId(url) {
 
 /**
  * ステータスが空 or 未設定のアイテムを取得
- * @param {string} databaseId - Database ID
- * @returns {Promise<Array>} 未処理アイテムの配列
  */
-export async function queryUnprocessedItems(databaseId) {
+export async function queryUnprocessedItems(databaseId: string): Promise<NotionPage[]> {
 	info('未処理アイテムを取得中...');
-	const data = await notionFetch(`/databases/${databaseId}/query`, {
+	const data = (await notionFetch(`/databases/${databaseId}/query`, {
 		method: 'POST',
 		body: JSON.stringify({
 			filter: {
@@ -81,7 +97,7 @@ export async function queryUnprocessedItems(databaseId) {
 				select: { is_empty: true },
 			},
 		}),
-	});
+	})) as unknown as NotionQueryResponse;
 	const items = data.results || [];
 	info(`${items.length} 件の未処理アイテムを検出`);
 	return items;
@@ -89,14 +105,13 @@ export async function queryUnprocessedItems(databaseId) {
 
 /**
  * ページのステータスとオプションで処理日を更新
- * @param {string} pageId - ページID
- * @param {string} status - ステータス名（例: "調査中", "調査完了"）。null でクリア
- * @param {string} [date] - 処理日（YYYY-MM-DD形式）。省略時は更新しない
- * @returns {Promise<object>}
  */
-export async function updatePageStatus(pageId, status, date) {
-	/** @type {Record<string, unknown>} */
-	const properties = {
+export async function updatePageStatus(
+	pageId: string,
+	status: string | null,
+	date?: string,
+): Promise<NotionResponse> {
+	const properties: Record<string, unknown> = {
 		ステータス: status ? { select: { name: status } } : { select: null },
 	};
 
@@ -112,11 +127,8 @@ export async function updatePageStatus(pageId, status, date) {
 
 /**
  * ページにブロックを追加（100件ずつ分割）
- * @param {string} pageId - ページID
- * @param {Array} blocks - Notion ブロック配列
- * @returns {Promise<void>}
  */
-export async function appendBlocks(pageId, blocks) {
+export async function appendBlocks(pageId: string, blocks: NotionBlock[]): Promise<void> {
 	// 100件ずつに分割して送信
 	for (let i = 0; i < blocks.length; i += MAX_BLOCKS_PER_REQUEST) {
 		const chunk = blocks.slice(i, i + MAX_BLOCKS_PER_REQUEST);

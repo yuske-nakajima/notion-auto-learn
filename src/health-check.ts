@@ -9,10 +9,8 @@ const NOTION_API_VERSION = '2022-06-28';
 
 /**
  * コマンドが PATH 上に存在するか確認する
- * @param {string} cmd - コマンド名
- * @returns {Promise<boolean>}
  */
-function commandExists(cmd) {
+function commandExists(cmd: string): Promise<boolean> {
 	return new Promise((resolve) => {
 		execFile('which', [cmd], (err) => {
 			resolve(!err);
@@ -23,14 +21,12 @@ function commandExists(cmd) {
 /**
  * ヘルスチェックを実行する
  * すべてのチェック結果をログ出力し、エラーがあれば false を返す
- * @returns {Promise<boolean>} 全チェック通過なら true
  */
-export async function runHealthCheck() {
-	/** @type {string[]} */
-	const errors = [];
+export async function runHealthCheck(): Promise<boolean> {
+	const errors: string[] = [];
 
-	const logOk = (/** @type {string} */ msg) => info(`OK: ${msg}`);
-	const logFail = (/** @type {string} */ msg) => {
+	const logOk = (msg: string): void => info(`OK: ${msg}`);
+	const logFail = (msg: string): void => {
 		logError(`FAIL: ${msg}`);
 		errors.push(msg);
 	};
@@ -75,7 +71,7 @@ export async function runHealthCheck() {
 				logFail(`Notion API 疎通NG（HTTP ${response.status}）-- NOTION_API_KEY を確認`);
 			}
 		} catch (err) {
-			logFail(`Notion API 疎通NG -- ${err.message}`);
+			logFail(`Notion API 疎通NG -- ${(err as Error).message}`);
 		}
 	}
 
@@ -97,7 +93,7 @@ export async function runHealthCheck() {
 				);
 			}
 		} catch (err) {
-			logFail(`Notion DB アクセスNG -- ${err.message}`);
+			logFail(`Notion DB アクセスNG -- ${(err as Error).message}`);
 		}
 	}
 

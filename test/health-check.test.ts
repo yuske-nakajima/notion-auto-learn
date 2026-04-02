@@ -1,13 +1,12 @@
-// health-check.js のテスト
-// node:test + node:assert を使用
+// health-check.ts のテスト
+// vitest を使用
 
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import { describe, expect, it } from 'vitest';
 import { runHealthCheck } from '../src/health-check.js';
 
 describe('runHealthCheck', () => {
 	it('関数としてエクスポートされている', () => {
-		assert.equal(typeof runHealthCheck, 'function');
+		expect(typeof runHealthCheck).toBe('function');
 	});
 
 	it('環境変数が未設定の場合 false を返す', async () => {
@@ -19,7 +18,7 @@ describe('runHealthCheck', () => {
 
 		try {
 			const result = await runHealthCheck();
-			assert.equal(result, false);
+			expect(result).toBe(false);
 		} finally {
 			// 復元
 			if (originalApiKey) process.env.NOTION_API_KEY = originalApiKey;

@@ -14,13 +14,12 @@ const INTERVAL_MINUTES = Number(process.env.INTERVAL_MINUTES) || 30;
 let isRunning = false;
 
 /** setInterval の ID（グレースフルシャットダウン用） */
-let intervalId = null;
+let intervalId: ReturnType<typeof setInterval> | null = null;
 
 /**
  * DB ID を環境変数から取得する
- * @returns {string}
  */
-function getDatabaseId() {
+function getDatabaseId(): string {
 	const url = process.env.NOTION_DB_URL;
 	if (!url) {
 		throw new Error('NOTION_DB_URL が未設定です');
@@ -31,7 +30,7 @@ function getDatabaseId() {
 /**
  * 1回分の処理を実行する（重複実行ガード付き）
  */
-async function runOnce() {
+async function runOnce(): Promise<void> {
 	if (isRunning) {
 		info('前回の処理がまだ実行中のためスキップ');
 		return;
@@ -42,7 +41,7 @@ async function runOnce() {
 		const databaseId = getDatabaseId();
 		await processItems(databaseId);
 	} catch (err) {
-		error(`処理エラー: ${err.message}`);
+		error(`処理エラー: ${(err as Error).message}`);
 	} finally {
 		isRunning = false;
 	}
@@ -50,9 +49,8 @@ async function runOnce() {
 
 /**
  * グレースフルシャットダウン
- * @param {string} signal - シグナル名
  */
-function shutdown(signal) {
+function shutdown(signal: string): void {
 	info(`${signal} を受信 -- シャットダウン中...`);
 	if (intervalId) {
 		clearInterval(intervalId);
