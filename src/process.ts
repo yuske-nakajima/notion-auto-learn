@@ -10,6 +10,7 @@ import { appendBlocks, queryUnprocessedItems, updatePageStatus } from './notion-
 
 const WAIT_SECONDS = Number(process.env.WAIT_SECONDS) || 1;
 const CHUNK_SIZE = Number(process.env.CHUNK_SIZE) || 5;
+const BATCH_TIMEOUT_MS = Number(process.env.BATCH_TIMEOUT_MS) || 300_000;
 
 // プロジェクトルートからプロンプトテンプレートを読み込む
 const PROMPT_TEMPLATE_PATH = resolve(import.meta.dirname, '../prompts/explain-term.md');
@@ -94,7 +95,7 @@ ${wordList}`;
 		const child = spawn(
 			'claude',
 			['-p', '--output-format', 'json', '--json-schema', BATCH_SCHEMA],
-			{ timeout: 120_000 },
+			{ timeout: BATCH_TIMEOUT_MS },
 		);
 
 		let stdout = '';
@@ -120,10 +121,10 @@ ${wordList}`;
 
 			try {
 				const parsed: unknown = JSON.parse(stdout.trim());
-				// --output-format json は { result: ... } でラップされる可能性あり
-				const unwrapped = isWrappedResult(parsed) ? parsed.result : parsed;
+				// --output-format json は { structured_output: ... } にデータが入る
+				const structured = hasStructuredOutput(parsed) ? parsed.structured_output : parsed;
 				// スキーマが { items: [...] } 形式なので items を取り出す
-				const data = hasItems(unwrapped) ? unwrapped.items : unwrapped;
+				const data = hasItems(structured) ? structured.items : structured;
 				if (!Array.isArray(data)) {
 					error('バッチ結果が配列ではありません');
 					resolve(null);
@@ -144,10 +145,10 @@ ${wordList}`;
 }
 
 /**
- * { result: ... } ラップ形式かどうかを判定
+ * { structured_output: ... } 形式かどうかを判定
  */
-function isWrappedResult(value: unknown): value is { result: unknown } {
-	return typeof value === 'object' && value !== null && 'result' in value;
+function hasStructuredOutput(value: unknown): value is { structured_output: unknown } {
+	return typeof value === 'object' && value !== null && 'structured_output' in value;
 }
 
 /**

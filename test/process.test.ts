@@ -202,15 +202,19 @@ describe('processItems', () => {
 		expect(appendBlocks).toHaveBeenCalledTimes(2);
 	});
 
-	it('バッチ結果が { result: [...] } ラップ形式でも処理される', async () => {
+	it('バッチ結果が { structured_output: { items: [...] } } 形式でも処理される', async () => {
 		const items = [createItem('page-1', 'React')];
 		(queryUnprocessedItems as Mock).mockResolvedValue(items);
 		(updatePageStatus as Mock).mockResolvedValue({});
 		(appendBlocks as Mock).mockResolvedValue(undefined);
 
-		// { result: [...] } ラップ形式
+		// --output-format json の実際のレスポンス形式
 		const wrappedResult = {
-			result: [{ index: 0, word: 'React', explanation: 'React の解説' }],
+			type: 'result',
+			result: '',
+			structured_output: {
+				items: [{ index: 0, word: 'React', explanation: 'React の解説' }],
+			},
 		};
 		setupMocks(wrappedResult);
 
