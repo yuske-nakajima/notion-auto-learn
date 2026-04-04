@@ -14,18 +14,24 @@ const CHUNK_SIZE = Number(process.env.CHUNK_SIZE) || 5;
 // プロジェクトルートからプロンプトテンプレートを読み込む
 const PROMPT_TEMPLATE_PATH = resolve(import.meta.dirname, '../prompts/explain-term.md');
 
-/** バッチ LLM 呼び出しの JSON Schema */
+/** バッチ LLM 呼び出しの JSON Schema（トップレベルは object 必須） */
 const BATCH_SCHEMA = JSON.stringify({
-	type: 'array',
-	items: {
-		type: 'object',
-		properties: {
-			index: { type: 'number' },
-			word: { type: 'string' },
-			explanation: { type: 'string' },
+	type: 'object',
+	properties: {
+		items: {
+			type: 'array',
+			items: {
+				type: 'object',
+				properties: {
+					index: { type: 'number' },
+					word: { type: 'string' },
+					explanation: { type: 'string' },
+				},
+				required: ['index', 'word', 'explanation'],
+			},
 		},
-		required: ['index', 'word', 'explanation'],
 	},
+	required: ['items'],
 });
 
 /** バッチ結果の1件分 */
@@ -114,8 +120,10 @@ ${wordList}`;
 
 			try {
 				const parsed: unknown = JSON.parse(stdout.trim());
-				// { result: [...] } ラップの可能性を考慮
-				const data = isWrappedResult(parsed) ? parsed.result : parsed;
+				// --output-format json は { result: ... } でラップされる可能性あり
+				const unwrapped = isWrappedResult(parsed) ? parsed.result : parsed;
+				// スキーマが { items: [...] } 形式なので items を取り出す
+				const data = hasItems(unwrapped) ? unwrapped.items : unwrapped;
 				if (!Array.isArray(data)) {
 					error('バッチ結果が配列ではありません');
 					resolve(null);
@@ -140,6 +148,18 @@ ${wordList}`;
  */
 function isWrappedResult(value: unknown): value is { result: unknown } {
 	return typeof value === 'object' && value !== null && 'result' in value;
+}
+
+/**
+ * { items: [...] } 形式かどうかを判定
+ */
+function hasItems(value: unknown): value is { items: unknown[] } {
+	return (
+		typeof value === 'object' &&
+		value !== null &&
+		'items' in value &&
+		Array.isArray((value as { items: unknown }).items)
+	);
 }
 
 /**

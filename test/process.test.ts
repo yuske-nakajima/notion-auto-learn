@@ -224,6 +224,28 @@ describe('processItems', () => {
 		);
 	});
 
+	it('バッチ結果が { items: [...] } 形式でも処理される', async () => {
+		const items = [createItem('page-1', 'React')];
+		(queryUnprocessedItems as Mock).mockResolvedValue(items);
+		(updatePageStatus as Mock).mockResolvedValue({});
+		(appendBlocks as Mock).mockResolvedValue(undefined);
+
+		// { items: [...] } 形式（実際のJSON Schemaレスポンス形式）
+		const itemsResult = {
+			items: [{ index: 0, word: 'React', explanation: 'React の解説' }],
+		};
+		setupMocks(itemsResult);
+
+		await processItems('test-db-id');
+
+		expect(appendBlocks).toHaveBeenCalledTimes(1);
+		expect(updatePageStatus).toHaveBeenCalledWith(
+			'page-1',
+			'調査完了',
+			expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
+		);
+	});
+
 	it('有効な用語と空の用語が混在する場合、空の用語のみスキップ', async () => {
 		const items = [
 			createItem('page-1', 'React'),
