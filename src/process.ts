@@ -1,7 +1,7 @@
 // メイン処理: 未処理アイテムを取得し、claude -p で解説を生成して Notion に書き込む
 // バッチ処理対応版: CHUNK_SIZE 件ずつまとめて LLM に問い合わせる
 
-import { execFile } from 'node:child_process';
+import { type ExecFileException, execFile, spawn } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { error, info } from './logger.js';
@@ -85,33 +85,53 @@ ${outputRules}
 ${wordList}`;
 
 	return new Promise((resolve) => {
-		execFile(
+		const child = spawn(
 			'claude',
-			['-p', '--output-format', 'json', '--json-schema', BATCH_SCHEMA, prompt],
-			{ maxBuffer: 5 * 1024 * 1024, timeout: 120_000 },
-			(err, stdout) => {
-				if (err) {
-					error(`バッチ claude -p 失敗: ${err.message}`);
+			['-p', '--output-format', 'json', '--json-schema', BATCH_SCHEMA],
+			{ timeout: 120_000 },
+		);
+
+		let stdout = '';
+		let stderr = '';
+
+		child.stdout.on('data', (data: Buffer) => {
+			stdout += data.toString();
+		});
+		child.stderr.on('data', (data: Buffer) => {
+			stderr += data.toString();
+		});
+
+		// プロンプトを stdin 経由で渡す
+		child.stdin.write(prompt);
+		child.stdin.end();
+
+		child.on('close', (code) => {
+			if (code !== 0) {
+				error(`バッチ claude -p 失敗 (exit ${code}): ${stderr}`);
+				resolve(null);
+				return;
+			}
+
+			try {
+				const parsed: unknown = JSON.parse(stdout.trim());
+				// { result: [...] } ラップの可能性を考慮
+				const data = isWrappedResult(parsed) ? parsed.result : parsed;
+				if (!Array.isArray(data)) {
+					error('バッチ結果が配列ではありません');
 					resolve(null);
 					return;
 				}
+				resolve(data as BatchResult[]);
+			} catch (parseErr) {
+				error(`バッチ結果のパース失敗: ${(parseErr as Error).message}`);
+				resolve(null);
+			}
+		});
 
-				try {
-					const parsed: unknown = JSON.parse(stdout);
-					// { result: [...] } ラップの可能性を考慮
-					const data = isWrappedResult(parsed) ? parsed.result : parsed;
-					if (!Array.isArray(data)) {
-						error('バッチ結果が配列ではありません');
-						resolve(null);
-						return;
-					}
-					resolve(data as BatchResult[]);
-				} catch (parseErr) {
-					error(`バッチ結果のパース失敗: ${(parseErr as Error).message}`);
-					resolve(null);
-				}
-			},
-		);
+		child.on('error', (err: ExecFileException) => {
+			error(`バッチ claude -p 失敗: ${err.message}`);
+			resolve(null);
+		});
 	});
 }
 

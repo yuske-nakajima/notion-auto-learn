@@ -1,6 +1,7 @@
 // process.ts のテスト
 // vitest を使用
 
+import { EventEmitter } from 'node:events';
 import { beforeEach, describe, expect, it, type Mock, vi } from 'vitest';
 
 // notion-client をモック
@@ -10,9 +11,10 @@ vi.mock('../src/notion-client.js', () => ({
 	appendBlocks: vi.fn(),
 }));
 
-// child_process の execFile をモック
+// child_process をモック（execFile + spawn）
 vi.mock('node:child_process', () => ({
 	execFile: vi.fn(),
+	spawn: vi.fn(),
 }));
 
 // fs の readFileSync をモック（テンプレート読み込み）
@@ -33,7 +35,7 @@ vi.mock('../src/md-to-notion.js', () => ({
 	mdToNotionBlocks: vi.fn().mockReturnValue([{ object: 'block', type: 'paragraph' }]),
 }));
 
-import { execFile } from 'node:child_process';
+import { execFile, spawn } from 'node:child_process';
 import { appendBlocks, queryUnprocessedItems, updatePageStatus } from '../src/notion-client.js';
 import { processItems } from '../src/process.js';
 
@@ -49,34 +51,52 @@ function createItem(id: string, word: string) {
 	};
 }
 
+/** spawn のモック子プロセスを作成するヘルパー */
+function createMockChildProcess(stdout: string, exitCode: number, stderr = '') {
+	const child = new EventEmitter() as EventEmitter & {
+		stdout: EventEmitter;
+		stderr: EventEmitter;
+		stdin: { write: Mock; end: Mock };
+	};
+	child.stdout = new EventEmitter();
+	child.stderr = new EventEmitter();
+	child.stdin = { write: vi.fn(), end: vi.fn() };
+
+	// 非同期でイベントを発火
+	process.nextTick(() => {
+		if (stdout) child.stdout.emit('data', Buffer.from(stdout));
+		if (stderr) child.stderr.emit('data', Buffer.from(stderr));
+		child.emit('close', exitCode);
+	});
+
+	return child;
+}
+
 /**
- * execFile モックに、バッチ呼び出しとフォールバック呼び出しを設定するヘルパー
- * batchResult: バッチ呼び出しの結果（null ならエラーを返す）
- * fallbackResults: フォールバック呼び出しの結果（省略可）
+ * spawn モックにバッチ結果を設定し、execFile モックにフォールバック結果を設定するヘルパー
  */
-function setupExecFileMock(batchResult: unknown[] | null, fallbackResults?: string[]) {
+function setupMocks(batchResult: unknown | null, fallbackResults?: string[]) {
+	// spawn: バッチ呼び出し用
+	if (batchResult === null) {
+		(spawn as unknown as Mock).mockReturnValue(createMockChildProcess('', 1, 'バッチ処理エラー'));
+	} else {
+		(spawn as unknown as Mock).mockReturnValue(
+			createMockChildProcess(JSON.stringify(batchResult), 0),
+		);
+	}
+
+	// execFile: フォールバック用（1件ずつ）
 	let fallbackIndex = 0;
 	(execFile as unknown as Mock).mockImplementation(
 		(
 			_cmd: string,
-			args: string[],
+			_args: string[],
 			_opts: unknown,
 			callback: (err: Error | null, stdout: string, stderr: string) => void,
 		) => {
-			const isBatch = args.includes('--output-format');
-			if (isBatch) {
-				if (batchResult === null) {
-					// バッチ失敗
-					callback(new Error('バッチ処理エラー'), '', 'エラー');
-				} else {
-					callback(null, JSON.stringify(batchResult), '');
-				}
-			} else {
-				// フォールバック（1件用）
-				const result = fallbackResults?.[fallbackIndex] ?? '解説テキスト';
-				fallbackIndex++;
-				callback(null, result, '');
-			}
+			const result = fallbackResults?.[fallbackIndex] ?? '解説テキスト';
+			fallbackIndex++;
+			callback(null, result, '');
 		},
 	);
 }
@@ -98,9 +118,9 @@ describe('processItems', () => {
 
 		await processItems('test-db-id');
 
-		// execFile が呼ばれていないこと
+		// spawn/execFile が呼ばれていないこと
+		expect(spawn).not.toHaveBeenCalled();
 		expect(execFile).not.toHaveBeenCalled();
-		// Notion への書き込みが行われていないこと
 		expect(appendBlocks).not.toHaveBeenCalled();
 		expect(updatePageStatus).not.toHaveBeenCalled();
 	});
@@ -111,7 +131,7 @@ describe('processItems', () => {
 
 		await processItems('test-db-id');
 
-		// 全てスキップされるので execFile は呼ばれない
+		expect(spawn).not.toHaveBeenCalled();
 		expect(execFile).not.toHaveBeenCalled();
 		expect(appendBlocks).not.toHaveBeenCalled();
 	});
@@ -134,23 +154,23 @@ describe('processItems', () => {
 			word: item.properties.用語.title[0].plain_text,
 			explanation: `${item.properties.用語.title[0].plain_text} の解説`,
 		}));
-		setupExecFileMock(batchResult);
+		setupMocks(batchResult);
 
 		await processItems('test-db-id');
 
-		// バッチ呼び出しが1回実行されること
-		expect(execFile).toHaveBeenCalledTimes(1);
+		// spawn（バッチ）が1回呼ばれること
+		expect(spawn).toHaveBeenCalledTimes(1);
+		// stdin にプロンプトが書き込まれていること
+		const child = (spawn as unknown as Mock).mock.results[0].value;
+		expect(child.stdin.write).toHaveBeenCalledTimes(1);
+		expect(child.stdin.end).toHaveBeenCalledTimes(1);
 
-		// 全件の「調査中」ステータス更新 + 全件の「調査完了」ステータス更新
-		// 調査中: 5回, 調査完了: 5回 = 合計10回
+		// 全件の「調査中」+ 全件の「調査完了」= 10回
 		expect(updatePageStatus).toHaveBeenCalledTimes(10);
 
-		// 各アイテムが「調査中」に更新されていること
 		for (const item of items) {
 			expect(updatePageStatus).toHaveBeenCalledWith(item.id, '調査中');
 		}
-
-		// 各アイテムが「調査完了」に更新されていること（日付付き）
 		for (const item of items) {
 			expect(updatePageStatus).toHaveBeenCalledWith(
 				item.id,
@@ -159,7 +179,6 @@ describe('processItems', () => {
 			);
 		}
 
-		// appendBlocks が5回呼ばれていること
 		expect(appendBlocks).toHaveBeenCalledTimes(5);
 	});
 
@@ -170,26 +189,17 @@ describe('processItems', () => {
 		(appendBlocks as Mock).mockResolvedValue(undefined);
 
 		// バッチは失敗、フォールバックは成功
-		setupExecFileMock(null, ['React の解説', 'TypeScript の解説']);
+		setupMocks(null, ['React の解説', 'TypeScript の解説']);
 
 		await processItems('test-db-id');
 
-		// バッチ1回 + フォールバック2回 = 合計3回
-		expect(execFile).toHaveBeenCalledTimes(3);
+		// spawn（バッチ）1回 + execFile（フォールバック）2回
+		expect(spawn).toHaveBeenCalledTimes(1);
+		expect(execFile).toHaveBeenCalledTimes(2);
 
-		// 調査中: 2回 + 調査完了: 2回 = 合計4回
+		// 調査中: 2回 + 調査完了: 2回 = 4回
 		expect(updatePageStatus).toHaveBeenCalledTimes(4);
-
-		// appendBlocks が2回呼ばれていること
 		expect(appendBlocks).toHaveBeenCalledTimes(2);
-
-		// フォールバック呼び出しでは --output-format が含まれないこと
-		const calls = (execFile as unknown as Mock).mock.calls;
-		// 2回目以降がフォールバック
-		for (let i = 1; i < calls.length; i++) {
-			const args = calls[i][1] as string[];
-			expect(args).not.toContain('--output-format');
-		}
 	});
 
 	it('バッチ結果が { result: [...] } ラップ形式でも処理される', async () => {
@@ -198,24 +208,14 @@ describe('processItems', () => {
 		(updatePageStatus as Mock).mockResolvedValue({});
 		(appendBlocks as Mock).mockResolvedValue(undefined);
 
-		// { result: [...] } ラップ形式のレスポンス
+		// { result: [...] } ラップ形式
 		const wrappedResult = {
 			result: [{ index: 0, word: 'React', explanation: 'React の解説' }],
 		};
-		(execFile as unknown as Mock).mockImplementation(
-			(
-				_cmd: string,
-				_args: string[],
-				_opts: unknown,
-				callback: (err: Error | null, stdout: string, stderr: string) => void,
-			) => {
-				callback(null, JSON.stringify(wrappedResult), '');
-			},
-		);
+		setupMocks(wrappedResult);
 
 		await processItems('test-db-id');
 
-		// 正常に処理されること
 		expect(appendBlocks).toHaveBeenCalledTimes(1);
 		expect(updatePageStatus).toHaveBeenCalledWith(
 			'page-1',
@@ -239,14 +239,14 @@ describe('processItems', () => {
 			{ index: 0, word: 'React', explanation: 'React の解説' },
 			{ index: 1, word: 'TypeScript', explanation: 'TypeScript の解説' },
 		];
-		setupExecFileMock(batchResult);
+		setupMocks(batchResult);
 
 		await processItems('test-db-id');
 
-		// バッチ呼び出しが1回
-		expect(execFile).toHaveBeenCalledTimes(1);
+		// spawn が1回
+		expect(spawn).toHaveBeenCalledTimes(1);
 
-		// 有効な2件のみ処理: 調査中2回 + 調査完了2回 = 4回
+		// 有効な2件のみ: 調査中2回 + 調査完了2回 = 4回
 		expect(updatePageStatus).toHaveBeenCalledTimes(4);
 		expect(appendBlocks).toHaveBeenCalledTimes(2);
 
